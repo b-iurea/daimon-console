@@ -1,0 +1,61 @@
+# Daimon skin — slate dark + green accent (matches the framebuffer UI).
+# Owned by the daimon-console overlay; NOT part of upstream Hermes source.
+# Rules: colors must be #rrggbb; missing keys inherit the built-in `default`.
+
+name: daimon
+description: Daimon — slate dark with sovereign green
+
+colors:
+  background: "#0f172a"        # slate-900 (fb UI base)
+  ui_accent: "#22c55e"         # green-500 (fb UI accent)
+  banner_accent: "#22c55e"
+  banner_title: "#e2e8f0"      # slate-200
+  banner_text: "#e2e8f0"
+  ui_text: "#e2e8f0"
+  ui_primary: "#e2e8f0"
+  ui_label: "#cbd5e1"          # slate-300
+  banner_dim: "#94a3b8"        # slate-400
+  banner_border: "#334155"
+  ui_border: "#334155"
+  ui_tool: "#4ade80"           # tool markers slightly brighter than accent
+  ui_thinking: "#64748b"
+  ui_ok: "#4ade80"
+  ui_warn: "#facc15"
+  ui_error: "#f87171"
+  prompt: "#22c55e"
+  input_rule: "#334155"
+  response_border: "#22c55e"
+  status_bar_bg: "#1e293b"     # slate-800
+  status_bar_text: "#cbd5e1"
+  status_bar_good: "#4ade80"
+  status_bar_warn: "#facc15"
+  status_bar_critical: "#f87171"
+  session_label: "#22c55e"
+  session_border: "#334155"
+  diff_added: "#4ade80"
+  diff_removed: "#f87171"
+  syntax_string: "#86efac"
+  syntax_number: "#fbbf24"
+  syntax_keyword: "#22c55e"
+  syntax_comment: "#64748b"
+
+branding:
+  agent_name: "Daimon"
+  welcome: "Daimon is awake — everything stays on this machine. Type /help for commands."
+  goodbye: "Daimon sleeps. Nothing left the box."
+  response_label: " ◆ Daimon "
+  prompt_symbol: "❯"
+  help_header: "(◆) Commands"
+
+spinner:
+  wings: [["⟪◆", "◆⟫"]]
+
+tool_prefix: "┊"
+
+banner_logo: |-
+  [bold #22c55e]╔═╗╦╔╗╔╔╗╔╔═╗╦╔╗╔[/bold #22c55e]
+  [bold #22c55e]║║║║║║║║║║║ ║║║║║[/bold #22c55e]
+  [bold #22c55e]╝╚╝╩╝╚╝╝╚╝╚═╝╩╝╚╝[/bold #22c55e]
+
+banner_hero: |-
+  [dim #64748b]· sovereign · local · yours ·[/dim #64748b]

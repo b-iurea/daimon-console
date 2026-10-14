@@ -1,0 +1,22 @@
+# Hermes config for the Daimon box — rendered by scripts/install.sh into
+# $HERMES_HOME/config.yaml (never overwritten silently).
+# The brain is the local llama-server (loopback, OpenAI-compatible); no cloud.
+# Keys follow the upstream schema (model.provider: "custom" + model.base_url).
+
+model:
+  default: "daimon-local"          # whatever tag the Daimon brain serves (/v1/models)
+  provider: custom
+  base_url: "http://127.0.0.1:8080/v1"   # llama-server on loopback (brain port; per 0.4 design)
+  # api key stays in .env (DASH-style var) — never in this file.
+
+display:
+  interface: tui                    # the Ink TUI is the Daimon console surface
+  skin: daimon                      # from skins/daimon.yaml in this overlay
+
+# Safety posture on the box (PLAN invariants — controller judges everything):
+approvals:
+  mode: manual                      # mutating actions require the owner
+
+# The socket adapter (widgets/ + plugin, next 0.10 subtask) replaces Hermes's
+# own execution loop with daimon's agent.sock flow; until that lands, this
+# config drives a read-only demo console.

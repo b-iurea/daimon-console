@@ -1,0 +1,7 @@
+# Upstream pin — the exact Hermes Agent commit this overlay was verified against.
+# Bumped ONLY by scripts/sync-upstream.sh (which runs the checks before accepting).
+upstream = https://github.com/NousResearch/hermes-agent.git
+branch   = main
+commit   = 1f6c02c07c697026888f1c66e634534fa2aae358
+tag      = v0.21.7+canary.20261013T070740Z
+pinned   = 2026-10-13
