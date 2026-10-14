@@ -59,7 +59,11 @@ spinner:
 tool_prefix: "┊"
 
 banner_logo: |-
-  [bold #0f172a on #22c55e] ✦ Daimon [/]
+  [bold #22c55e]╔═╗╦╔╗╔╔╗╔╔═╗╦╔╗╔[/]
+  [bold #22c55e]║║║║║║║║║║║ ║║║║║[/]
+  [bold #22c55e]╝╚╝╩╝╚╝╝╚╝╚═╝╩╝╚╝[/]
+
+
 
 banner_hero: |-
   [#64748b]· sovereign · local · yours ·[/]
