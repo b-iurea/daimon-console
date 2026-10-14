@@ -184,10 +184,14 @@ customCSS: |-
 
 - `banner_title`/`ui_primary` → STRONG (titles one step above body text); body stays TEXT.
 - `syntax_keyword` green → VIOLET (green is reserved for Daimon/ok; code is not Daimon speaking).
-- `banner_hero`: tagline kept; three role-coded ◆ lines add the trust model. `banner_logo` byte-identical to
-  the current `✦ Daimon` pill (note: HEAD still carried the older 3-line `╔═╗` glyph logo; the pill is what daimon-os
-  `tests/acceptance.py` matches and what the working tree already had).
+- `banner_hero`: tagline kept; three role-coded ◆ lines add the trust model.
+  `banner_logo` stays the mainline ╔═╗ glyph block, byte-identical (the ✦ pill is an open owner
+  decision, tracked in §7 follow-ups).
+
 - No new hex; all pins in §2 unchanged. `customCSS` is proposed in §5.5, not shipped.
+
+- **✦ pill banner decision (owner):** swap `banner_logo` to the filled green pill `[w bold #0f172a on #22c55e] ✦ Daimon [/]`-
+  style badge; requires re-verifying daimon-os acceptance string match and the 25 MiB/ISO banner capture.
 
 ## 7. Follow-ups (not done here — widget/plugin code is out of scope)
 
