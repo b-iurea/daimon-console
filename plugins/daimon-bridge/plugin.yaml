@@ -1,0 +1,24 @@
+name: daimon-bridge
+version: 0.1.0
+description: "Daimon box adapter: /daimon relays prompts, confirmations, cancel and reset to the Daimon agent socket (DAIMON_SOCK, default /run/daimon/agent.sock) and shows its event flow; the console's own tool calls are blocked so the Daimon agent acts and its controller judges every mutation. Fails closed: no socket, no action."
+author: "b-iurea (daimon-console overlay)"
+kind: standalone
+platforms:
+  - linux
+provides_hooks:
+  - pre_tool_call
+config_schema:
+  guard:
+    type: str
+    choices: [block, "off"]
+    default: block
+    label: "Local tool calls"
+    description: "block = the console never executes tools itself (Daimon box); off = plain Hermes behaviour"
+  allow_tools:
+    type: list
+    default: []
+    description: "Tools the owner explicitly lets the console run locally (read-only ones only)"
+  turn_wait:
+    type: int
+    default: 300
+    description: "Seconds /daimon follows a turn before handing back the prompt (the turn keeps running)"

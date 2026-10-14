@@ -17,6 +17,15 @@ display:
 approvals:
   mode: manual                      # mutating actions require the owner
 
-# The socket adapter (widgets/ + plugin, next 0.10 subtask) replaces Hermes's
-# own execution loop with daimon's agent.sock flow; until that lands, this
-# config drives a read-only demo console.
+# The socket adapter (plugins/daimon-bridge): /daimon relays to the Daimon agent
+# on agent.sock (env DAIMON_SOCK), and the console's own tool calls are blocked —
+# the Daimon agent acts, its controller judges. Fails closed when the socket is down.
+plugins:
+  enabled:
+    - daimon-bridge
+  entries:
+    daimon-bridge:
+      settings:
+        guard: block                # never "off" on the box
+        allow_tools: []
+        turn_wait: 300
