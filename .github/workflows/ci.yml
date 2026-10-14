@@ -1,0 +1,31 @@
+# The gate every PR passes: the overlay still fits the pinned upstream, and the tests are green.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # widgets/*.mjs are tested with node:test (run from pytest below)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: install test deps
+        run: pip install pyyaml pytest
+
+      - name: contract check against upstream (UPSTREAM.lock)
+        run: bash scripts/sync-upstream.sh
+
+      - name: tests (pytest + node widget suite)
+        run: python3 -m pytest tests/ -q
