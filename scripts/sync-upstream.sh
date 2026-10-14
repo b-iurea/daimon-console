@@ -10,6 +10,7 @@
 # "upgrade Hermes" ritual.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+REPO="$(pwd -P)"
 CACHE=".cache/hermes-agent.git"
 mkdir -p .cache
 
@@ -39,7 +40,6 @@ check "SkinConfig has custom_css"       "custom_css"       hermes_cli/skin_engin
 check "user skins dir is loaded"        "skins"            hermes_cli/skin_engine.py
 
 # skin file must parse with the real upstream parser
-REPO="$(pwd)"
 ( cd "$WK" && "$PY" - "$REPO/skins/daimon.yaml" <<'EOF'
 import sys, yaml, dataclasses
 sys.path.insert(0, ".")
@@ -57,7 +57,8 @@ EOF
 # downstream patch queue (if any) must still apply cleanly
 shopt -s nullglob
 for p in patches/*.patch; do
-  ( cd "$WK" && git apply --check "$OLDPWD/$p" ) \
+  # git apply resolves relative paths against the worktree — give it absolute ones
+  ( cd "$WK" && git apply --check "$REPO/$p" ) \
     && echo "  ✓ $p applies" || { echo "  ✗ $p NO LONGER APPLIES"; fail=1; }
 done
 
