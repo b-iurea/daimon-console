@@ -43,7 +43,7 @@ const SCRIPT = [
 ]
 
 const ASKING = `
- ◆ DAIMON · decisions                  ● live
+ ◆ Controller decisions        ● agent online
 
  ◆ action check · judged in 1.5 s
  power {"action":"reboot"}
@@ -59,7 +59,7 @@ const ASKING = `
  ✓ ALLOW 0.91 · read {"path":"/etc/hostname"}`
 
 const DENIED = `
- ◆ DAIMON · decisions                  ● live
+ ◆ Controller decisions        ● agent online
 
  ◆ action check · judged in 1.5 s
  power {"action":"reboot"}
@@ -142,7 +142,7 @@ test('judge + confirm sequence renders the card stack (snapshot)', () => {
   assert.doesNotMatch(allowed, /answer: \/daimon/)
 })
 
-test('every line is exactly the card width; verdicts are green/red strips on slate', () => {
+test('every line is exactly the card width; verdicts are green/amber strips on slate', () => {
   const m = live(play(SCRIPT))
   const lines = w.linesOf(m)
 
@@ -152,23 +152,82 @@ test('every line is exactly the card width; verdicts are green/red strips on sla
 
   const deny = lines.find(l => l.some(g => g.s.includes('D E N Y')))
   const allow = lines.find(l => l.some(g => g.s.includes('✓ ALLOW')))
-  assert.ok(deny.every(g => g.bg === w.PALETTE.bad && g.fg === w.PALETTE.bg))
-  assert.ok(allow.every(g => g.bg === w.PALETTE.ok))
+  assert.ok(deny.every(g => g.bg === w.PALETTE.amber && g.fg === w.PALETTE.bg), 'stopped for the owner is amber, as in tui.rs')
+  assert.ok(allow.every(g => g.bg === w.PALETTE.accent))
 
   const bar = lines.find(l => l.some(g => g.s.includes('│')))
-  assert.equal(bar.find(g => g.s.includes('█')).fg, w.PALETTE.bad, 'a failed row fills red')
-  assert.equal(bar.find(g => g.s === '│').fg, w.PALETTE.warn, 'threshold marker')
+  assert.equal(bar.find(g => g.s.includes('█')).fg, w.PALETTE.red, 'a failed row fills red')
+  assert.equal(bar.find(g => g.s === '│').fg, w.PALETTE.strong, 'threshold marker')
+  assert.equal(bar.find(g => g.s.includes('░')).fg, w.PALETTE.border, 'empty track')
   assert.ok(lines.filter(l => l !== deny && l !== allow).every(l => l.every(g => g.bg === w.PALETTE.bg)))
+
+  const color = (l, s) => l.find(g => g.s.includes(s)).fg
+  assert.equal(color(lines[0], 'Controller'), w.PALETTE.violet, 'the controller is violet')
+  assert.equal(color(lines[0], '● agent online'), w.PALETTE.accent)
+  assert.equal(color(lines.find(l => l.some(g => g.s.includes('/daimon yes|no'))), '/daimon'), w.PALETTE.sky, 'what the owner types is sky')
+  assert.equal(color(lines.find(l => l.some(g => g.s.includes('10%'))), '10%'), w.PALETTE.strong)
+
+  const bare = w.linesOf(live(play([{ ev: 'judge', kind: 'k', subject: 's', allowed: false, verdict: 'error', rows: [] }])))
+  assert.ok(bare.find(l => l.some(g => g.s.includes('D E N Y'))).every(g => g.bg === w.PALETTE.red), 'a verdict with no rows is red')
 })
 
-test('the palette is skins/daimon.yaml', () => {
+test('the header says what the window is and the link state, in words', () => {
+  const judged = play(SCRIPT.slice(0, 4))
+  const head = m => w.textOf(m).split('\n')[0]
+
+  assert.equal(head(live(w.initialModel('/x'))), ' ◆ Controller decisions        ● agent online ')
+  assert.equal(head({ ...judged, status: 'idle' }), ' ◆ Controller decisions       ○ agent offline ')
+  assert.equal(head(w.initialModel('/x')), ' ◆ Controller decisions   ○ waiting for agent ')
+  assert.equal(w.linkState({ ...judged, status: 'idle' }).fg, w.PALETTE.red)
+  assert.equal(w.linkState(w.initialModel('/x')).fg, w.PALETTE.amber)
+  assert.equal(snap(live(w.initialModel('/x'))), ' ◆ Controller decisions        ● agent online\n · no decisions yet')
+})
+
+// daimon-os daimon/src/tui.rs, lines 28-39 (BG SURFACE BORDER TEXT STRONG MUTED FAINT ACCENT SKY VIOLET AMBER RED)
+const TUI_RS = {
+  bg: [15, 23, 42],
+  surface: [30, 41, 59],
+  border: [51, 65, 85],
+  text: [226, 232, 240],
+  strong: [248, 250, 252],
+  muted: [148, 163, 184],
+  faint: [100, 116, 139],
+  accent: [34, 197, 94],
+  sky: [56, 189, 248],
+  violet: [167, 139, 250],
+  amber: [245, 158, 11],
+  red: [239, 68, 68]
+}
+const hex = rgb => '#' + rgb.map(n => n.toString(16).padStart(2, '0')).join('')
+
+test('the palette is daimon-os tui.rs', () => {
+  assert.deepEqual(w.PALETTE, Object.fromEntries(Object.entries(TUI_RS).map(([k, v]) => [k, hex(v)])))
+
+  // with a daimon-os checkout next to this repo, check the source itself too
+  const src = path.join(ROOT, '../daimon-os/daimon/src/tui.rs')
+
+  if (fs.existsSync(src)) {
+    const rs = Object.fromEntries(
+      [...fs.readFileSync(src, 'utf8').matchAll(/^const (\w+): Color = Color::Rgb\((\d+), (\d+), (\d+)\);/gm)].map(m => [m[1].toLowerCase(), m.slice(2).map(Number)])
+    )
+    assert.deepEqual(rs, TUI_RS)
+  }
+})
+
+test('the skin uses only tui.rs colors, and the keys the card shares with it agree', () => {
   const skin = Object.fromEntries(
-    [...fs.readFileSync(path.join(ROOT, 'skins/daimon.yaml'), 'utf8').matchAll(/^\s+(\w+):\s*"(#[0-9a-fA-F]{6})"/gm)].map(m => [m[1], m[2]])
+    [...fs.readFileSync(path.join(ROOT, 'skins/daimon.yaml'), 'utf8').matchAll(/^\s+(\w+):\s*"(#[0-9a-fA-F]{6})"/gm)].map(m => [m[1], m[2].toLowerCase()])
   )
-  const map = { bg: 'background', ok: 'ui_accent', bad: 'ui_error', warn: 'ui_warn', text: 'ui_text', label: 'ui_label', muted: 'banner_dim', panel: 'status_bar_bg' }
+  const allowed = new Set(Object.values(w.PALETTE))
+
+  for (const [key, v] of Object.entries(skin)) {
+    assert.ok(allowed.has(v), `skin ${key} ${v} is not a tui.rs color`)
+  }
+
+  const map = { bg: 'background', accent: 'ui_ok', red: 'ui_error', amber: 'ui_warn', text: 'ui_text', muted: 'ui_label', border: 'ui_border', faint: 'ui_thinking', surface: 'status_bar_bg', sky: 'prompt' }
 
   for (const [k, key] of Object.entries(map)) {
-    assert.equal(w.PALETTE[k].toLowerCase(), skin[key].toLowerCase(), `${k} ≠ skin ${key}`)
+    assert.equal(w.PALETTE[k], skin[key], `${k} ≠ skin ${key}`)
   }
 })
 
@@ -239,7 +298,7 @@ test('idle path: no socket ⇒ quiet idle card, reconnect with growing backoff, 
 
   await until(() => retries.length === 1, 'idle model')
   assert.equal(feed.model.status, 'idle')
-  assert.equal(snap(feed.model), ' ◆ DAIMON · decisions                  ○ idle\n · no agent socket yet — waiting')
+  assert.equal(snap(feed.model), ' ◆ Controller decisions   ○ waiting for agent\n · agent not started yet — waiting for it')
 
   for (let i = 1; i <= 4; i++) {
     retries.at(-1).fn()
@@ -288,7 +347,7 @@ test('agent drops ⇒ idle card keeps the stack, then reconnects and replays', a
   h.drop()
   await until(() => feed.model.status === 'idle', 'idle after drop')
   assert.equal(feed.model.cards.length, 1)
-  assert.match(w.textOf(feed.model), /○ offline/)
+  assert.match(w.textOf(feed.model), /○ agent offline/)
   await until(() => feed.model.status === 'live' && h.windows.length === 1, 'reconnected')
   assert.equal(feed.model.cards.length, 1, 'replay rebuilt, not duplicated')
 })
@@ -298,7 +357,7 @@ test('a socket that never finishes its replay times out into idle', async t => {
   await hub(t, sock, null)
   const feed = feedFor(t, { path: sock, liveTimeout: 100, backoff: [60000] })
 
-  await until(() => feed.model.note === 'agent link down — reconnecting', 'replay timeout')
+  await until(() => feed.model.note === 'lost the agent — reconnecting', 'replay timeout')
   assert.equal(feed.model.status, 'idle')
 })
 
@@ -400,7 +459,7 @@ test('the rendered tree carries the segment colors to Ink', () => {
   const walk = n => (n && typeof n === 'object' ? (n.type === 'Text' ? texts.push(n) : n.children.forEach(walk)) : null)
   walk(tree)
   const deny = texts.find(t => t.children.join('').includes('D E N Y'))
-  assert.equal(deny.props.backgroundColor, w.PALETTE.bad)
+  assert.equal(deny.props.backgroundColor, w.PALETTE.amber)
   assert.equal(deny.props.color, w.PALETTE.bg)
   assert.equal(tree.props.width, w.CARD)
 })
