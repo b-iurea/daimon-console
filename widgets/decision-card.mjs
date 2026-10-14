@@ -15,8 +15,8 @@
  *     card and a reconnect with backoff; every handler swallows its errors;
  *   * no Daimon on this machine (no DAIMON_SOCK, no /run/daimon) ⇒ register() is a no-op: no
  *     command, no dock, no timers, no sockets — safe to install on dev machines;
- *   * the card paints its own slate background, so its foregrounds are the matching Daimon palette
- *     (skins/daimon.yaml), not terminal-adapted theme tones that could vanish on slate.
+ *   * the card paints its own slate background, so its foregrounds are the real Daimon palette
+ *     (daimon-os `daimon/src/tui.rs`), not terminal-adapted theme tones that could vanish on slate.
  *
  * Install: scripts/install.sh copies this file to $HERMES_HOME/tui-widgets/. It docks itself in the
  * right rail on load; `/decision-card` toggles it, `/decision-card <socket>` points it elsewhere.
@@ -35,16 +35,22 @@ const LIVE_TIMEOUT = 5000 // connect → end of the replay, like the bridge
 const BAR = 26 // probability bar cells
 const LINE_MAX = 1 << 20 // a "line" longer than this without a newline is dropped
 
-// skins/daimon.yaml — background, ui_accent, ui_error, ui_warn, ui_text, ui_label, banner_dim, status_bar_bg
+// daimon-os daimon/src/tui.rs — the framebuffer UI's theme, used here as Daimon uses it there:
+// violet = the controller, sky = the owner (you), green = allowed / up, amber = held for the owner,
+// red = failed / offline, strong = the numbers, faint = rules and hints, border = empty bar track
 export const PALETTE = {
   bg: '#0f172a',
-  ok: '#22c55e',
-  bad: '#f87171',
-  warn: '#facc15',
+  surface: '#1e293b',
+  border: '#334155',
   text: '#e2e8f0',
-  label: '#cbd5e1',
+  strong: '#f8fafc',
   muted: '#94a3b8',
-  panel: '#1e293b'
+  faint: '#64748b',
+  accent: '#22c55e',
+  sky: '#38bdf8',
+  violet: '#a78bfa',
+  amber: '#f59e0b',
+  red: '#ef4444'
 }
 
 export const sockPath = (env = process.env) => (env.DAIMON_SOCK || '').trim() || DEFAULT_SOCK
@@ -60,7 +66,7 @@ export function daimonPresent(env = process.env, exists = fs.existsSync) {
 
 // ------------------------------------------------------------------ model (events → cards)
 
-export const initialModel = (path = DEFAULT_SOCK) => ({ path, status: 'idle', note: 'connecting…', cards: [], seq: 0, armed: false })
+export const initialModel = (path = DEFAULT_SOCK) => ({ path, status: 'idle', note: 'connecting to the agent…', cards: [], seq: 0, armed: false })
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d)
 const unit = v => Math.min(1, Math.max(0, num(v)))
@@ -225,7 +231,7 @@ export function bar(p, thr, ok) {
   const segs = []
 
   for (let i = 0; i < BAR; i++) {
-    const [ch, fg] = i === mark ? ['│', PALETTE.warn] : i < filled ? ['█', ok ? PALETTE.ok : PALETTE.bad] : ['░', PALETTE.muted]
+    const [ch, fg] = i === mark ? ['│', PALETTE.strong] : i < filled ? ['█', ok ? PALETTE.accent : PALETTE.red] : ['░', PALETTE.border]
     const last = segs.at(-1)
 
     if (last && last.fg === fg) {
@@ -269,7 +275,8 @@ function strip(c, subject = '') {
   const tail = subject ? ` · ${subject}` : ''
 
   if (c.phase === 'judged') {
-    const bg = c.allowed ? PALETTE.ok : PALETTE.bad
+    // as tui.rs: allowed is green, stopped for the owner is amber, a verdict with no rows behind it is red
+    const bg = c.allowed ? PALETTE.accent : c.rows.length ? PALETTE.amber : PALETTE.red
     const big = c.allowed ? '✓ A L L O W' : '✗ D E N Y'
 
     if (subject) {
@@ -280,11 +287,11 @@ function strip(c, subject = '') {
   }
 
   if (c.phase === 'judging') {
-    return line([seg(subject ? ` ⋯ judging${tail}` : '  ⋯ J U D G I N G', PALETTE.warn, PALETTE.panel, true)], PALETTE.panel)
+    return line([seg(subject ? ` ⋯ judging${tail}` : '  ⋯ J U D G I N G', PALETTE.violet, PALETTE.surface, true)], PALETTE.surface)
   }
 
   if (c.phase === 'void') {
-    return line([seg(` · no verdict${tail}`, PALETTE.muted, PALETTE.panel)], PALETTE.panel)
+    return line([seg(` · no verdict${tail}`, PALETTE.muted, PALETTE.surface)], PALETTE.surface)
   }
 
   return null // a bare question has no controller verdict to show
@@ -296,14 +303,14 @@ function askLines(c, full) {
   }
 
   if (c.answer === null) {
-    const q = full ? wrap(c.ask, CARD - 3, 2).map((s, i) => line([seg(`${i ? '   ' : ' ? '}${s}`, PALETTE.warn, PALETTE.bg, true)])) : []
+    const q = full ? wrap(c.ask, CARD - 3, 2).map((s, i) => line([seg(`${i ? '   ' : ' ? '}${s}`, PALETTE.amber, PALETTE.bg, true)])) : []
 
-    return [...q, line([seg(' answer: ', PALETTE.label), seg('/daimon yes|no', PALETTE.text, PALETTE.bg, true)])]
+    return [...q, line([seg(' answer: ', PALETTE.muted), seg('/daimon yes|no', PALETTE.sky, PALETTE.bg, true)])]
   }
 
   const owner = c.answer
-    ? line([seg(' owner: ', PALETTE.label), seg('✓ allowed', PALETTE.ok, PALETTE.bg, true)])
-    : line([seg(' owner: ', PALETTE.label), seg('✗ denied', PALETTE.bad, PALETTE.bg, true)])
+    ? line([seg(' owner: ', PALETTE.sky), seg('✓ allowed', PALETTE.accent, PALETTE.bg, true)])
+    : line([seg(' owner: ', PALETTE.sky), seg('✗ denied', PALETTE.red, PALETTE.bg, true)])
 
   return full ? [line([seg(` ? ${c.ask}`, PALETTE.muted)]), owner] : [owner]
 }
@@ -311,22 +318,22 @@ function askLines(c, full) {
 /** The newest card: what was judged, every row against its threshold, the verdict, the question. */
 function fullCard(c) {
   const out = [
-    line([seg(' ◆ ', PALETTE.ok, PALETTE.bg, true), seg(c.kind || 'controller', PALETTE.label, PALETTE.bg, true), seg(` · ${phaseText(c)}`, PALETTE.muted)])
+    line([seg(' ◆ ', PALETTE.violet, PALETTE.bg, true), seg(c.kind || 'controller', PALETTE.text, PALETTE.bg, true), seg(` · ${phaseText(c)}`, PALETTE.muted)])
   ]
 
   if (c.subject) {
-    out.push(line([seg(` ${c.subject}`, PALETTE.text)]))
+    out.push(line([seg(` ${c.subject}`, PALETTE.muted)]))
   }
 
   for (const r of c.rows) {
     const thr = threshold(r.rule)
-    out.push(line([seg(` ${r.ok ? '✓' : '✗'} `, r.ok ? PALETTE.ok : PALETTE.bad, PALETTE.bg, true), seg(r.question || '(unnamed)', PALETTE.text)]))
+    out.push(line([seg(` ${r.ok ? '✓' : '✗'} `, r.ok ? PALETTE.accent : PALETTE.red, PALETTE.bg, true), seg(r.question || '(unnamed)', PALETTE.text)]))
     out.push(
       line([
         seg('   '),
         ...bar(r.p, thr, r.ok),
-        seg(` ${String(Math.round(r.p * 100)).padStart(3)}%`, PALETTE.text, PALETTE.bg, true),
-        seg(thr === null ? (r.rule ? `  ${r.rule}` : '') : `  ≥${Math.round(thr * 100)}%`, PALETTE.muted)
+        seg(` ${String(Math.round(r.p * 100)).padStart(3)}%`, PALETTE.strong, PALETTE.bg, true),
+        seg(thr === null ? (r.rule ? `  ${r.rule}` : '') : `  ≥${Math.round(thr * 100)}%`, PALETTE.faint)
       ])
     )
   }
@@ -338,20 +345,36 @@ function fullCard(c) {
 
 /** An older card, collapsed under the newest: its verdict strip and the owner's answer. */
 function compactCard(c) {
-  const s = strip(c, c.subject || c.kind) ?? line([seg(` ? ${c.ask ?? ''}`, PALETTE.warn, PALETTE.panel)], PALETTE.panel)
+  const s = strip(c, c.subject || c.kind) ?? line([seg(` ? ${c.ask ?? ''}`, PALETTE.amber, PALETTE.surface)], PALETTE.surface)
 
   return [s, ...askLines(c, false)]
+}
+
+/** The link to the agent, in words: online, lost (the cards shown are the last known), or not reached yet. */
+export function linkState(model) {
+  if (model.status === 'live') {
+    return { text: '● agent online', fg: PALETTE.accent }
+  }
+
+  return model.cards.length ? { text: '○ agent offline', fg: PALETTE.red } : { text: '○ waiting for agent', fg: PALETTE.amber }
+}
+
+/** The title line: what this window shows (left, in the controller's violet) and the link state (right). */
+function header(model) {
+  const title = [seg(' ◆ ', PALETTE.violet, PALETTE.bg, true), seg('Controller decisions', PALETTE.violet, PALETTE.bg, true)]
+  const { text, fg } = linkState(model)
+  const room = CARD - title.reduce((n, g) => n + len(g.s), 0) - len(text) - 1
+
+  return line([...title, seg(' '.repeat(Math.max(1, room))), seg(`${text} `, fg, PALETTE.bg, true)])
 }
 
 /** The whole stack as lines of colored segments, each exactly CARD cells. Pure. */
 export function linesOf(model) {
   const live = model.status === 'live'
-  const out = [
-    spread(' ◆ DAIMON · decisions', live ? '● live ' : model.cards.length ? '○ offline ' : '○ idle ', live ? PALETTE.ok : PALETTE.muted, PALETTE.bg, true)
-  ]
+  const out = [header(model)]
 
   if (!model.cards.length) {
-    out.push(line([seg(live ? ' · no decisions yet' : ` · ${model.note || 'waiting for the agent'}`, PALETTE.muted)]))
+    out.push(line([seg(' · ', PALETTE.faint), seg(live ? 'no decisions yet' : model.note || 'waiting for the agent', PALETTE.muted)]))
 
     return out
   }
@@ -372,13 +395,13 @@ export const textOf = model => linesOf(model).map(l => l.map(g => g.s).join(''))
 function noteFor(err) {
   switch (err && err.code) {
     case 'ENOENT':
-      return 'no agent socket yet — waiting'
+      return 'agent not started yet — waiting for it'
     case 'ECONNREFUSED':
-      return 'agent not listening — retrying'
+      return 'agent not answering — trying again'
     case 'EACCES':
-      return 'no permission on the agent socket'
+      return 'no permission to reach the agent'
     default:
-      return 'agent link down — reconnecting'
+      return 'lost the agent — reconnecting'
   }
 }
 

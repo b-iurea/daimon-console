@@ -1,6 +1,11 @@
 # Daimon skin — slate dark + green accent (matches the framebuffer UI).
 # Owned by the daimon-console overlay; NOT part of upstream Hermes source.
 # Rules: colors must be #rrggbb; missing keys inherit the built-in `default`.
+# Palette = daimon-os daimon/src/tui.rs (the framebuffer UI), and nothing else:
+#   BG #0f172a  SURFACE #1e293b  BORDER #334155  TEXT #e2e8f0  STRONG #f8fafc  MUTED #94a3b8
+#   FAINT #64748b  ACCENT #22c55e  SKY #38bdf8  VIOLET #a78bfa  AMBER #f59e0b  RED #ef4444
+# Same roles as there: green = Daimon/ok, sky = the owner's input, amber = tools/warnings,
+# red = errors. tests/decision_card.test.mjs fails on any other hex.
 
 name: daimon
 description: Daimon — slate dark with sovereign green
@@ -13,29 +18,29 @@ colors:
   banner_text: "#e2e8f0"
   ui_text: "#e2e8f0"
   ui_primary: "#e2e8f0"
-  ui_label: "#cbd5e1"          # slate-300
-  banner_dim: "#94a3b8"        # slate-400
+  ui_label: "#94a3b8"          # MUTED
+  banner_dim: "#94a3b8"        # MUTED
   banner_border: "#334155"
   ui_border: "#334155"
-  ui_tool: "#4ade80"           # tool markers slightly brighter than accent
-  ui_thinking: "#64748b"
-  ui_ok: "#4ade80"
-  ui_warn: "#facc15"
-  ui_error: "#f87171"
-  prompt: "#22c55e"
+  ui_tool: "#f59e0b"           # AMBER: tool calls are amber in tui.rs
+  ui_thinking: "#64748b"       # FAINT
+  ui_ok: "#22c55e"
+  ui_warn: "#f59e0b"
+  ui_error: "#ef4444"
+  prompt: "#38bdf8"            # SKY: the owner's input line in tui.rs
   input_rule: "#334155"
   response_border: "#22c55e"
   status_bar_bg: "#1e293b"     # slate-800
-  status_bar_text: "#cbd5e1"
-  status_bar_good: "#4ade80"
-  status_bar_warn: "#facc15"
-  status_bar_critical: "#f87171"
+  status_bar_text: "#94a3b8"   # MUTED
+  status_bar_good: "#22c55e"
+  status_bar_warn: "#f59e0b"
+  status_bar_critical: "#ef4444"
   session_label: "#22c55e"
   session_border: "#334155"
-  diff_added: "#4ade80"
-  diff_removed: "#f87171"
-  syntax_string: "#86efac"
-  syntax_number: "#fbbf24"
+  diff_added: "#22c55e"
+  diff_removed: "#ef4444"
+  syntax_string: "#38bdf8"
+  syntax_number: "#f59e0b"
   syntax_keyword: "#22c55e"
   syntax_comment: "#64748b"
 

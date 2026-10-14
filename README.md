@@ -95,12 +95,12 @@ Ink TUI that surface is a widget app (upstream's `$HERMES_HOME/tui-widgets/` con
 default-exporting `register(sdk)`, hot-loaded, no build step). `install.sh` copies it there.
 
 ```
- ◆ DAIMON · decisions                  ● live
+ ◆ Controller decisions        ● agent online  ← what this is · link to the agent
  ◆ action check · judged in 1.5 s
  power {"action":"reboot"}
  ✗ Is it reversible?
    ███░░░░░░░░░░░░░│░░░░░░░░░  10%  ≥60%      ← p bar, │ = the rule's threshold
-  ✗ D E N Y                score 0.40 · asks   ← red/green strip: verdict + score
+  ✗ D E N Y                score 0.40 · asks   ← green/amber strip: verdict + score
  ? risky: power {"action":"reboot"}  -- allow? [y/n]
  answer: /daimon yes|no                         ← the owner types it; the widget never does
  ✓ ALLOW 0.91 · read {"path":"/etc/hostname"}   ← older cards, collapsed to their verdict
@@ -112,15 +112,18 @@ default-exporting `register(sdk)`, hot-loaded, no build step). `install.sh` copi
 - **Stack**: newest card on top, shown in full; the last 3 are kept, older ones collapse to their
   verdict strip and the owner's answer. The replay after a (re)connect rebuilds the stack.
 - **Never breaks the TUI**: missing/refusing/dropped socket or garbage on the wire ⇒ a quiet idle
-  card (`○ idle · no agent socket yet — waiting`) and reconnects with backoff (0.5 → 10 s); every
+  card (`○ waiting for agent · agent not started yet — waiting for it`) and reconnects with backoff (0.5 → 10 s); every
   handler swallows its errors; agent text is stripped of control characters (no escape injection).
 - **No Daimon, no widget**: without `DAIMON_SOCK` and `/run/daimon`, `register()` is a no-op (no
   command, no dock, no timers) — installing on a dev machine is harmless.
 - **Placement**: docks itself in the right rail on load (`zone: top-right`, 48 cols reserved);
   `/decision-card` toggles it, `/decision-card <socket>` points it at another socket.
-- **Palette**: the card paints its own slate `#0f172a` background, so it uses the matching
-  `skins/daimon.yaml` hexes (green `#22c55e`, red `#f87171`, …) rather than terminal-adapted theme
-  tones; a test asserts they equal the skin's values.
+- **Palette**: the card paints its own slate `#0f172a` background, so it uses the real Daimon-OS
+  palette from daimon-os `daimon/src/tui.rs` with the same roles (violet = controller, sky = owner,
+  green = allowed, amber = held for the owner, red = failed/offline) rather than terminal-adapted
+  theme tones; tests assert the palette equals tui.rs and that `skins/daimon.yaml` uses no other hex.
+- **Header**: `◆ Controller decisions` + the link state in words: `● agent online`,
+  `○ agent offline` (link lost; the cards shown are the last known), `○ waiting for agent`.
 
 Try it: `python tests/fake_agent.py /tmp/agent.sock`, then `DAIMON_SOCK=/tmp/agent.sock hermes --tui`
 and `/daimon prompt please reboot`. Tests: `node --test tests/decision_card.test.mjs` (also run by
