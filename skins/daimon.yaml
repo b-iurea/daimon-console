@@ -6,6 +6,7 @@
 #   FAINT #64748b  ACCENT #22c55e  SKY #38bdf8  VIOLET #a78bfa  AMBER #f59e0b  RED #ef4444
 # Same roles as there: green = Daimon/ok, sky = the owner's input, amber = tools/warnings,
 # red = errors. tests/decision_card.test.mjs fails on any other hex.
+# Design rationale, 16-colour fallback and component patterns: docs/design.md.
 
 name: daimon
 description: Daimon — slate dark with sovereign green
@@ -14,10 +15,10 @@ colors:
   background: "#0f172a"        # slate-900 (fb UI base)
   ui_accent: "#22c55e"         # green-500 (fb UI accent)
   banner_accent: "#22c55e"
-  banner_title: "#e2e8f0"      # slate-200
+  banner_title: "#f8fafc"      # STRONG: titles one step above body text
   banner_text: "#e2e8f0"
   ui_text: "#e2e8f0"
-  ui_primary: "#e2e8f0"
+  ui_primary: "#f8fafc"        # STRONG
   ui_label: "#94a3b8"          # MUTED
   banner_dim: "#94a3b8"        # MUTED
   banner_border: "#334155"
@@ -39,9 +40,9 @@ colors:
   session_border: "#334155"
   diff_added: "#22c55e"
   diff_removed: "#ef4444"
-  syntax_string: "#38bdf8"
+  syntax_string: "#38bdf8"     # SKY
   syntax_number: "#f59e0b"
-  syntax_keyword: "#22c55e"
+  syntax_keyword: "#a78bfa"    # VIOLET: green stays reserved for Daimon/ok (not code)
   syntax_comment: "#64748b"
 
 branding:
@@ -62,5 +63,13 @@ banner_logo: |-
   [bold #22c55e]║║║║║║║║║║║ ║║║║║[/]
   [bold #22c55e]╝╚╝╩╝╚╝╝╚╝╚═╝╩╝╚╝[/]
 
+
+
 banner_hero: |-
   [#64748b]· sovereign · local · yours ·[/]
+  [#a78bfa]◆[/] [#94a3b8]every action is judged[/]
+  [#38bdf8]◆[/] [#94a3b8]you have the last word[/]
+  [#22c55e]◆[/] [#94a3b8]nothing leaves the box[/]
+
+# Desktop-GUI customCSS: proposed in docs/design.md §5.5, not shipped here — upstream loads the key
+# `customCSS` but scripts/sync-upstream.sh's skin check only knows `custom_css` (follow-up §7.6).
