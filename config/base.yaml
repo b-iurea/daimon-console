@@ -4,10 +4,18 @@
 # Keys follow the upstream schema (model.provider: "custom" + model.base_url).
 
 model:
-  default: "daimon-local"          # whatever tag the Daimon brain serves (/v1/models)
+  default: "daimon-local"          # replaced at setup time with the real id from the brain's /v1/models
   provider: custom
-  base_url: "http://127.0.0.1:8080/v1"   # llama-server on loopback (brain port; per 0.4 design)
+  base_url: "http://127.0.0.1:8080/v1"   # llama-server on loopback — the `port` key of daimon's llm module (default 8080)
   # api key stays in .env (DASH-style var) — never in this file.
+
+# Sovereign box: no metrics, no consent dialog. `offer_version` must equal upstream's
+# shared_metrics_consent.OFFER_VERSION (2) or Hermes re-asks on every first-ish start.
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+    offer_version: 2
 
 display:
   interface: tui                    # the Ink TUI is the Daimon console surface
