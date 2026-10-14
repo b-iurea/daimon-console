@@ -58,9 +58,9 @@ spinner:
 tool_prefix: "┊"
 
 banner_logo: |-
-  [bold #22c55e]╔═╗╦╔╗╔╔╗╔╔═╗╦╔╗╔[/bold #22c55e]
-  [bold #22c55e]║║║║║║║║║║║ ║║║║║[/bold #22c55e]
-  [bold #22c55e]╝╚╝╩╝╚╝╝╚╝╚═╝╩╝╚╝[/bold #22c55e]
+  [bold #22c55e]╔═╗╦╔╗╔╔╗╔╔═╗╦╔╗╔[/]
+  [bold #22c55e]║║║║║║║║║║║ ║║║║║[/]
+  [bold #22c55e]╝╚╝╩╝╚╝╝╚╝╚═╝╩╝╚╝[/]
 
 banner_hero: |-
-  [dim #64748b]· sovereign · local · yours ·[/dim #64748b]
+  [#64748b]· sovereign · local · yours ·[/]
