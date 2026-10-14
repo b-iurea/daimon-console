@@ -38,6 +38,12 @@ check "SkinConfig has banner_logo"      "banner_logo"      hermes_cli/skin_engin
 check "SkinConfig has branding dict"    "branding"         hermes_cli/skin_engine.py
 check "SkinConfig has custom_css"       "custom_css"       hermes_cli/skin_engine.py
 check "user skins dir is loaded"        "skins"            hermes_cli/skin_engine.py
+echo "→ checking TUI widget contract (widgets/decision-card.mjs)…"
+check "TUI loads \$HERMES_HOME/tui-widgets" "'tui-widgets'"  ui-tui/src/sdk/userWidgets.ts
+check "widget SDK passes defineWidgetApp" "  defineWidgetApp," ui-tui/src/sdk/userWidgets.ts
+check "widget SDK passes openWidget"    "  openWidget,"    ui-tui/src/sdk/userWidgets.ts
+check "ambient apps take zone + width"  "width?: number"   ui-tui/src/sdk/types.ts
+check "right-rail zone exists"          "'top-right'"      ui-tui/src/sdk/types.ts
 
 # skin file must parse with the real upstream parser
 ( cd "$WK" && "$PY" - "$REPO/skins/daimon.yaml" <<'EOF'
