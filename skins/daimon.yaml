@@ -67,14 +67,5 @@ banner_hero: |-
   [#38bdf8]◆[/] [#94a3b8]you have the last word[/]
   [#22c55e]◆[/] [#94a3b8]nothing leaves the box[/]
 
-# Desktop GUI only (upstream key is `customCSS`, injected as a <style> tag, 32 KiB cap; the TUI
-# ignores it). Deliberately minimal: palette-only hexes, system fonts only (no web-font fetch on a
-# sovereign box), and the accessibility basics the GUI theme does not guarantee.
-customCSS: |-
-  ::selection { background: #22c55e; color: #0f172a; }              /* ACCENT on BG: 7.83:1 */
-  :focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; } /* SKY ring: 8.33:1 on BG */
-  code, pre, kbd, samp { font-family: ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", monospace; }
-  * { scrollbar-color: #334155 #0f172a; }                           /* BORDER thumb on BG */
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-  }
+# Desktop-GUI customCSS: proposed in docs/design.md §5.5, not shipped here — upstream loads the key
+# `customCSS` but scripts/sync-upstream.sh's skin check only knows `custom_css` (follow-up §7.6).

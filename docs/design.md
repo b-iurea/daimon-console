@@ -160,13 +160,25 @@ pair as the banner pill, so "filled = Daimon decided something" is one visual id
 - Errors: red, `✗` prefix, state cause + the recovery action ("`✗ brain unreachable — retry with /daimon status`").
 - Destructive prompts are the Ask card — the only place amber is filled.
 
-### 5.5 Desktop GUI (`customCSS`)
+### 5.5 Desktop GUI (`customCSS`) — proposal, not yet in the skin
 
-The skin's `customCSS` key (upstream spelling; `custom_css` is only the Python field) is a minimal, palette-only
-block: selection in accent/BG, a 2 px sky `:focus-visible` ring (8.33:1; focus is never removed), system mono stack
-with no web fonts, a BORDER/BG scrollbar, and a `prefers-reduced-motion` guard. It does not restyle components —
-upstream owns layout; we only add a11y floor and identity. Ignored by the TUI. Hexes in it are covered by the same
-palette rule (no hex outside `tui.rs`).
+Upstream loads the skin key `customCSS` (injected as a `<style>` tag, 32 KiB cap; the TUI ignores it; `custom_css` is only
+the Python field name). It is **not shipped** yet because `scripts/sync-upstream.sh` validates skin keys against
+`SkinConfig` field names and would reject `customCSS` (see §7.6). Minimal, palette-only block to add to
+`skins/daimon.yaml` once the check accepts it: selection in accent/BG, a 2 px sky focus ring (8.33:1; focus is never
+removed), system mono stack with no web fonts, BORDER/BG scrollbar, a `prefers-reduced-motion` guard. It does not restyle
+components — upstream owns layout; we only add the a11y floor and identity.
+
+```yaml
+customCSS: |-
+  ::selection { background: #22c55e; color: #0f172a; }
+  :focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+  code, pre, kbd, samp { font-family: ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", monospace; }
+  * { scrollbar-color: #334155 #0f172a; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+```
 
 ## 6. What changed in `skins/daimon.yaml`
 
@@ -175,7 +187,7 @@ palette rule (no hex outside `tui.rs`).
 - `banner_hero`: tagline kept; three role-coded ◆ lines add the trust model. `banner_logo` byte-identical to
   the current `✦ Daimon` pill (note: HEAD still carried the older 3-line `╔═╗` glyph logo; the pill is what daimon-os
   `tests/acceptance.py` matches and what the working tree already had).
-- New `customCSS` (§5.5). No new hex; all pins in §2 unchanged.
+- No new hex; all pins in §2 unchanged. `customCSS` is proposed in §5.5, not shipped.
 
 ## 7. Follow-ups (not done here — widget/plugin code is out of scope)
 
@@ -186,3 +198,4 @@ palette rule (no hex outside `tui.rs`).
    (word change only; keep the glyph and the score).
 4. **Reduced noise**: the `⋯ JUDGING` strip could drop letter-spacing under `NO_COLOR` for screen readers (the spaced `A L L O W` reads as letters).
 5. Align README wording: the skin key is `customCSS`, not `custom_css`.
+6. **Contract check**: make `scripts/sync-upstream.sh`'s skin-key check accept the loader's `customCSS` (it reads `data.get("customCSS")`), then ship §5.5.
