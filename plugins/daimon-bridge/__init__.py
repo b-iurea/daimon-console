@@ -4,6 +4,8 @@ SDK surfaces used (and why — see README "Socket adapter"):
   * ``ctx.register_command("daimon", ...)`` — the in-session slash command. It is the one surface
     that works the same in the classic CLI, the Ink TUI and the gateway, and its input comes from
     the *owner's keyboard*: controller questions must be answered by the owner, never by a model.
+  * ``ctx.register_command("admin", ...)`` — same surface; asks the password without echo and relays
+    it once. The switch to the admin console is Daimon's (PID 1), not the console's.
   * ``ctx.register_hook("pre_tool_call", ...)`` — blocks the console's *own* tool calls, so the
     console never owns an execution loop on the box: the Daimon agent acts, its controller judges.
   * no ``register_tool``: a model-facing tool would put the console's LLM between the owner and
@@ -40,6 +42,9 @@ def register(ctx):
     def on_daimon(raw_args: str) -> str:
         return link.handle(raw_args)
 
+    def on_admin(raw_args: str = "") -> str:
+        return link.admin(raw_args)
+
     def on_pre_tool_call(tool_name: str = "", **kwargs):
         mode = str(setting("guard", "block")).strip().lower()
         allow = setting("allow_tools", [])
@@ -53,5 +58,11 @@ def register(ctx):
         on_daimon,
         description="Daimon agent: prompt / yes / no / watch / cancel / reset / status",
         args_hint="<prompt|yes|no|watch|cancel|reset|status> [text]",
+    )
+    ctx.register_command(
+        "admin",
+        on_admin,
+        description="Hand off to the Daimon admin console (asks for the admin password)",
+        args_hint="",
     )
     ctx.register_hook("pre_tool_call", on_pre_tool_call)

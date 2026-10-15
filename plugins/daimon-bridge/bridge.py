@@ -5,8 +5,9 @@ this module directly. Wire format (daimon-os ``daimon/src/link.rs``): a Unix str
 JSON object per line, both directions.
 
   in  (window → agent):  {"prompt":"..."}  {"confirm":true|false}  {"reset":true}  {"cancel":true}
+                         {"admin":"<password>"}
   out (agent → window):  {"ev":"user|think|text|tool|tool_out|info|confirm|answered|ctx|progress|
-                          judging|judge|done|err|ready|sync", ...}
+                          judging|judge|done|err|ready|sync|admin", ...}
   A window that connects first gets {"ev":"sync"}, the conversation so far, then {"ev":"live"}.
 
 Invariants this module enforces:
@@ -32,6 +33,7 @@ DEFAULT_SOCK = "/run/daimon/agent.sock"
 LIVE_TIMEOUT = 5.0  # connect → end of the replay
 TOOL_OUT_MAX = 1200  # chars of a tool's output shown in the console
 BUFFER_MAX = 5000  # live events kept for the next command; oldest dropped first
+ADMIN_TIMEOUT = 10.0  # s to wait for the agent's admin verdict
 
 # events that end a wait on the agent (the turn ended, or the owner must decide)
 _TURN_END = ("done", "err")
@@ -63,6 +65,10 @@ def cmd_cancel() -> dict:
     return {"cancel": True}
 
 
+def cmd_admin(password: str) -> dict:
+    return {"admin": password}
+
+
 # ------------------------------------------------------------------ the connection (one window)
 
 class Link:
@@ -80,6 +86,7 @@ class Link:
         self._cv = threading.Condition()
         self._events: collections.deque = collections.deque()
         self._wlock = threading.Lock()
+        self._admin: dict | None = None  # the verdict on the last admin frame, kept off the event buffer
 
     @property
     def up(self) -> bool:
@@ -138,6 +145,18 @@ class Link:
                 return self._events.popleft()
             return None if self._up else {"ev": "_down"}
 
+    def admin_verdict(self, timeout: float) -> bool | None:
+        """The ``ok`` of the next admin verdict within ``timeout`` s; None if none came or the link dropped."""
+        deadline = time.monotonic() + timeout
+        with self._cv:
+            while self._admin is None and self._up:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return None
+                self._cv.wait(left)
+            ev, self._admin = self._admin, None
+        return None if ev is None else ev.get("ok") is True
+
     def drain(self) -> list:
         """Every buffered live event, without waiting."""
         with self._cv:
@@ -159,6 +178,11 @@ class Link:
                     continue
                 if ev["ev"] == "live":
                     self._live.set()
+                    continue
+                if ev["ev"] == "admin":  # a verdict, not conversation: it must not show up in /daimon output
+                    with self._cv:
+                        self._admin = ev if self._live.is_set() else None
+                        self._cv.notify_all()
                     continue
                 self._track(ev)
                 # the replay only rebuilds state; the owner saw it already in whichever window was open
@@ -289,12 +313,30 @@ HELP = """/daimon — the console's link to the Daimon agent (socket {path})
   /daimon status          socket, turn, open question"""
 
 
+ADMIN_USAGE = ("usage: /admin   (no argument — the password is asked for without echo; never type it "
+               "after the command, the console would keep it in its input history)")
+
+
+def ask_password(prompt: str = "Daimon admin password: ") -> str | None:
+    """A no-echo password prompt on the owner's terminal; None where there is no terminal to ask
+    on (gateway, TUI RPC, pipes) — the caller then refuses rather than take the password elsewhere."""
+    import getpass
+    import sys
+    try:
+        if not sys.stdin.isatty():
+            return None
+        return getpass.getpass(prompt)
+    except (EOFError, KeyboardInterrupt, OSError):
+        return None
+
+
 class Bridge:
     """The ``/daimon`` command. One persistent link, (re)connected on demand; every failure is a
     refusal message, never an exception into the console and never a local fallback."""
 
-    def __init__(self, wait: float = 300.0):
+    def __init__(self, wait: float = 300.0, ask_secret=ask_password):
         self.wait = wait
+        self.ask_secret = ask_secret  # () -> str | None; tests inject a scripted owner
         self.link: Link | None = None
         self._lock = threading.Lock()
 
@@ -321,6 +363,30 @@ class Bridge:
             except BridgeDown as e:
                 self._drop()
                 return f"✗ daimon-bridge refused: {e}. Nothing was executed; the console itself still works."
+
+    def admin(self, raw: str = "") -> str:
+        """``/admin``: hand the owner over to the Daimon admin console. The password is read here,
+        sent once as ``{"admin":"…"}`` and dropped: it is in no returned string, log or state.
+        The switch itself is Daimon's (PID 1 changes the video on ok) — nothing is simulated."""
+        if raw.strip():
+            return ADMIN_USAGE  # the arg is never echoed back, sent or parsed
+        with self._lock:
+            try:
+                link = self._ensure()
+                secret = self.ask_secret()
+                if not secret:
+                    return "✗ admin: no password entered (or no terminal to ask on) — nothing sent"
+                link.send(cmd_admin(secret))
+                del secret
+                ok = link.admin_verdict(ADMIN_TIMEOUT)
+            except BridgeDown as e:
+                self._drop()
+                return f"✗ daimon-bridge refused: {e}. Nothing was sent; the console itself still works."
+        if ok is None:
+            return "✗ admin: the agent gave no answer — try again"
+        if ok:
+            return "✓ switching to the admin console"
+        return "✗ admin: wrong password (5 wrong tries in a row lock it for 60 s)"
 
     # -- verbs
 
