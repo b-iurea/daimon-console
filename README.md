@@ -66,6 +66,15 @@ and prints live events: `user`, `think`/`text` (stream deltas, joined), `tool` (
 visual form is the decision-card widget below), `done`, `err`, `ready`, `sync`; `ctx`/`progress`
 are not printed.
 
+**`/admin`** — hands the owner over to the Daimon admin console. No argument: the password is asked
+for without echo (a terminal is required; where there is none — gateway, TUI RPC — it refuses), sent
+once as `{"admin":"<password>"}`, and dropped. The agent answers `{"ev":"admin","ok":true|false}`; on
+`ok` the console prints `✓ switching to the admin console` (PID 1 does the actual video switch), on
+`ok:false` a short failure line (5 wrong tries in a row lock it for 60 s on Daimon's side). The
+password is never in any returned string, log or state; `/admin <password>` is refused unsent so a
+typed secret is not repeated, but note the console's own input history is upstream's and sees what
+the owner types.
+
 **Invariants:**
 - **Fail closed.** Socket path missing, not a socket, refusing connections, or dropped mid-turn ⇒
   `/daimon` answers `✗ daimon-bridge refused: …` and sends nothing; it never falls back to

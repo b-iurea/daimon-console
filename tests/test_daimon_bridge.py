@@ -11,6 +11,7 @@ import os
 import socket
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -288,7 +289,7 @@ class FakeCtx:
 def test_register_wires_command_and_guard(sock):
     ctx = FakeCtx({"allow_tools": ["skills_list"]})
     plugin.register(ctx)
-    assert set(ctx.commands) == {"daimon"} and set(ctx.hooks) == {"pre_tool_call"}
+    assert set(ctx.commands) == {"daimon", "admin"} and set(ctx.hooks) == {"pre_tool_call"}
     guard = ctx.hooks["pre_tool_call"]
     assert guard(tool_name="terminal", args={"command": "reboot"}, task_id="t")["action"] == "block"
     assert guard(tool_name="skills_list", args={}, task_id="t") is None
@@ -303,3 +304,136 @@ def test_register_end_to_end(agent):
     assert "THE CONTROLLER ASKS" in out
     assert "✓ allowed" in ctx.commands["daimon"]("yes")
     assert [json.dumps(c) for c in agent.commands] == ['{"prompt": "reboot"}', '{"confirm": true}']
+
+
+# ---------------------------------------------------------------- /admin (hand-off to the Daimon admin console)
+
+SECRET = "hunter2-s3cret"
+
+
+class AdminAgent:
+    """Just enough agent.sock for /admin: sync+live on connect, then answers each admin frame."""
+
+    def __init__(self, path, password=SECRET, answer="check"):  # "check": ok iff the password matches
+        self.path, self.password, self.answer = path, password, answer
+        self.frames: list = []
+        self._srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self._srv.bind(path)
+        self._srv.listen(4)
+
+    def start(self):
+        threading.Thread(target=self._accept, daemon=True).start()
+        return self
+
+    def _accept(self):
+        while True:
+            try:
+                conn, _ = self._srv.accept()
+            except OSError:
+                return
+            threading.Thread(target=self._serve, args=(conn,), daemon=True).start()
+
+    def _serve(self, conn):
+        conn.sendall(b'{"ev":"sync"}\n{"ev":"live"}\n')
+        for raw in conn.makefile("rb"):
+            frame = json.loads(raw)
+            self.frames.append(frame)
+            if "admin" in frame and self.answer is not None:
+                ok = self.answer if isinstance(self.answer, bool) else frame["admin"] == self.password
+                conn.sendall((json.dumps({"ev": "admin", "ok": ok}) + "\n").encode())
+
+    def stop(self):
+        self._srv.close()
+
+
+@pytest.fixture
+def admin_agent(sock):
+    a = AdminAgent(sock).start()
+    yield a
+    a.stop()
+
+
+def owner(*typed):
+    """A scripted owner for the no-echo prompt; records how often they were asked."""
+    answers = list(typed)
+    asked = []
+
+    def ask():
+        asked.append(1)
+        return answers.pop(0)
+    ask.asked = asked
+    return ask
+
+
+def test_cmd_admin_is_the_exact_frame():
+    assert json.dumps(bridge.cmd_admin("pw"), separators=(",", ":")) == '{"admin":"pw"}'
+
+
+def test_admin_ok_sends_frame_and_announces_switch(admin_agent):
+    b = bridge.Bridge(wait=5, ask_secret=owner(SECRET))
+    out = b.admin("")
+    assert admin_agent.frames == [{"admin": SECRET}]
+    assert out == "✓ switching to the admin console"
+    assert SECRET not in out
+
+
+def test_admin_wrong_password_shows_failure_without_leaking(admin_agent):
+    b = bridge.Bridge(wait=5, ask_secret=owner("wrong-pw-123"))
+    out = b.admin("")
+    assert admin_agent.frames == [{"admin": "wrong-pw-123"}]
+    assert out.startswith("✗ admin: wrong password") and "switching" not in out
+    assert "wrong-pw-123" not in out
+    # nothing the console could show or replay later holds it either
+    assert "wrong-pw-123" not in b.handle("status") and b.link.drain() == []
+
+
+def test_admin_verdict_stays_out_of_daimon_output(admin_agent):
+    b = bridge.Bridge(wait=5, ask_secret=owner(SECRET))
+    b.admin("")
+    assert "admin" not in b.handle("watch")
+
+
+def test_admin_argument_is_never_sent_or_echoed(admin_agent):
+    ask = owner(SECRET)
+    b = bridge.Bridge(wait=5, ask_secret=ask)
+    out = b.admin(SECRET)
+    assert out == bridge.ADMIN_USAGE and SECRET not in out
+    assert admin_agent.frames == [] and ask.asked == []
+
+
+def test_admin_empty_or_unavailable_password_sends_nothing(admin_agent):
+    for typed in ("", None):
+        b = bridge.Bridge(wait=5, ask_secret=owner(typed))
+        assert "nothing sent" in b.admin("")
+    assert admin_agent.frames == []
+
+
+def test_admin_no_terminal_means_no_password(monkeypatch):
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False, raising=False)
+    assert bridge.ask_password() is None
+
+
+def test_admin_no_socket_refuses_without_leaking(sock):
+    b = bridge.Bridge(wait=1, ask_secret=owner(SECRET))
+    out = b.admin("")
+    assert out.startswith("✗ daimon-bridge refused: no agent socket at " + sock)
+    assert SECRET not in out
+
+
+def test_admin_agent_silent_times_out(sock, monkeypatch):
+    a = AdminAgent(sock, answer=None).start()
+    try:
+        monkeypatch.setattr(bridge, "ADMIN_TIMEOUT", 0.3)
+        out = bridge.Bridge(wait=1, ask_secret=owner(SECRET)).admin("")
+        assert "no answer" in out and SECRET not in out
+    finally:
+        a.stop()
+
+
+def test_register_wires_admin_command(admin_agent):
+    ctx = FakeCtx()
+    plugin.register(ctx)
+    assert "admin" in ctx.commands
+    # the registered handler goes through the same Bridge; a typed argument is refused, not sent
+    assert ctx.commands["admin"](SECRET) == bridge.ADMIN_USAGE
+    assert admin_agent.frames == []
